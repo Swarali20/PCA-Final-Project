@@ -18,11 +18,11 @@ struct Page {
     long double temp_page_rank;
 };
 
+
 std::vector<int> ExploreDanglingPages(std::vector<int> &out_link_cnts) {
 	std::vector<int> dangling_pages;
 	for (int i = 0; i < out_link_cnts.size(); i++) {
 		if (out_link_cnts[i] == 0) {
-      cout << i << "Is dangling" << endl;
 			dangling_pages.push_back(i);
 		}
 	}
@@ -51,6 +51,26 @@ int find_element(const std::vector<Page> &pages, int ID){
     //  cout << -1 << endl;
     return -1;
    }
+}
+
+void AddPagesPr(
+		std::vector<Page> &pages,
+		std::vector<int> &out_link_cnts,
+		std::vector<long double> &old_pr,
+		std::vector<long double> &new_pr) {
+	for (int i = 0; i < pages.size(); i++) {
+		long double sum = 0;
+    if (pages[i].num_in_pages>0){
+      int num_incoming = pages[i].incoming_ids.size();
+      // cout << "Incoming: ";
+      for (int j = 0 ; j<num_incoming;j++){
+          int in_id = pages[i].incoming_ids[j];
+          int from_page = find_element(pages, in_id);
+          sum += old_pr[from_page] / out_link_cnts[from_page];
+      }
+    }
+		new_pr[i] = sum;
+	}
 }
 
 int main(int argc, char** argv){
@@ -116,7 +136,24 @@ int main(int argc, char** argv){
   cout<<"Graph data loaded in "<<(double)(clock() - tStart)/CLOCKS_PER_SEC<<"s"<<endl;
   
   std::vector<int> dangling_pages = ExploreDanglingPages(out_link_cnts);
-  // cout << "size: " << dangling_pages.size();
-  
-  
+  std::vector<long double> pr = InitPr(num_pages);
+	std::vector<long double> old_pr(num_pages);
+
+  bool go_on = true;
+	int step = 0;
+	// while (go_on) {
+		std::copy(pr.begin(), pr.end(), old_pr.begin());
+
+		AddPagesPr(pages, out_link_cnts, old_pr, pr);
+
+    std::copy(pr.begin(), pr.end(), old_pr.begin());
+
+		AddPagesPr(pages, out_link_cnts, old_pr, pr);
+
+    std::copy(pr.begin(), pr.end(), old_pr.begin());
+
+		AddPagesPr(pages, out_link_cnts, old_pr, pr);
+
+    for (auto i: pr)
+      std::cout << i << ' ';    
 }
