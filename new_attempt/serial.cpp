@@ -65,8 +65,9 @@ void AddPagesPr(
       // cout << "Incoming: ";
       for (int j = 0 ; j<num_incoming;j++){
           int in_id = pages[i].incoming_ids[j];
-          int from_page = find_element(pages, in_id);
-          sum += old_pr[from_page] / out_link_cnts[from_page];
+          // int from_page = find_element(pages, in_id);
+          // cout << in_id << endl;
+          sum += old_pr[in_id] / out_link_cnts[in_id];
       }
     }
 		new_pr[i] = sum;
@@ -106,6 +107,7 @@ int main(int argc, char** argv){
 
     map <int, Page> input_pages;
     map <int, int> lookup;
+    map<int, int > rev_lookup;
 
     std::vector<Page> pages;
     std::vector<int> out_link_cnts;
@@ -153,6 +155,7 @@ int main(int argc, char** argv){
               input_pages[from_idx].num_out_pages = 0;
               input_pages[from_idx].page_rank = 0;
               lookup[num_pages] = from_idx;
+              rev_lookup[from_idx] = num_pages;
               num_pages++;
           }
           if (!input_pages.count(to_idx)) {
@@ -161,6 +164,7 @@ int main(int argc, char** argv){
               input_pages[to_idx].num_out_pages = 0;
               input_pages[to_idx].page_rank = 0;
               lookup[num_pages] = to_idx;
+              rev_lookup[to_idx] = num_pages;
               num_pages++;
           }
 
@@ -173,23 +177,37 @@ int main(int argc, char** argv){
 
    cout << "Num pages: " << num_pages<< endl;
    out_link_cnts.reserve(num_pages);
-
+    
+    int idx;
    for (int i=0; i<num_pages;i++){
-     out_link_cnts.push_back(input_pages[i].num_out_pages);
+     idx = lookup[i]; 
+     out_link_cnts.push_back(input_pages[idx].num_out_pages);
    }
 
-   for (auto & i: out_link_cnts){
-     cout << i << " ";
-   }
+  //  for (auto &i : out_link_cnts){
+  //    cout << i << endl;
+  //  }
 
+  // cout << "~~~~~~~";
+  int vec_idx;
   for (int i=0; i<num_pages;i++){
     pages.push_back(Page());
-    pages[i].num_in_pages = input_pages[i].num_in_pages;
-    pages[i].num_out_pages = input_pages[i].num_out_pages;
-          
-    for (int j=0;j<input_pages[i].incoming_ids.size();j++){
-      pages[i].incoming_ids.push_back(input_pages[i].incoming_ids[j]);
+
+    idx = lookup[i];
+    // cout << i << " " << input_pages[idx].num_in_pages << " " << input_pages[idx].num_out_pages <<" " << endl;
+    pages[i].num_in_pages = input_pages[idx].num_in_pages;
+    pages[i].ID = idx;
+    
+    // cout << "Incoming ID's for: " << i << "/" << idx << endl;
+    for (int j=0;j<input_pages[idx].incoming_ids.size();j++){
+      
+      // cout << input_pages[idx].incoming_ids[j] << " ";
+      vec_idx = rev_lookup[input_pages[idx].incoming_ids[j]];
+      // cout << "Vector ID: " << vec_idx << endl;
+      pages[i].incoming_ids.push_back(vec_idx);
+    
     } 
+    // cout << endl; 
   }
 
   // cout << "Out size: " << out_link_cnts.size() <<endl;
@@ -215,8 +233,8 @@ int main(int argc, char** argv){
 
   }
 
-  cout<<"Algorithm terminated in "<<(double)(clock() - tStart)/CLOCKS_PER_SEC<<"s"<<endl;
+  cout<<"Algorithm terminated in "<<(double)(clock() - aStart)/CLOCKS_PER_SEC<<"s"<<endl;
   
-  for (auto i: pr)
-    std::cout << i << ' ';    
+  // for (auto i: pr)
+  //   std::cout << i << ' ';    
 }
