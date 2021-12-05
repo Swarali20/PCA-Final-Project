@@ -73,6 +73,27 @@ void AddPagesPr(
 	}
 }
 
+void AddDanglingPagesPr(
+		std::vector<int> &dangling_pages,
+		std::vector<long double> &old_pr,
+		std::vector<long double> &new_pr) {
+	long double sum = 0;
+	for (int page : dangling_pages) {
+		sum += old_pr[page];
+	}
+	for (long double &pr : new_pr) {
+		pr += sum / new_pr.size();
+	}
+}
+
+void AddRandomJumpsPr(
+		long double damping_factor,
+		std::vector<long double> &new_pr) {
+	for (long double &pr : new_pr) {
+		pr = pr * damping_factor + (1 - damping_factor) / new_pr.size();
+	}
+}
+
 int main(int argc, char** argv){
 
     if (argc != 3) {
@@ -82,6 +103,9 @@ int main(int argc, char** argv){
 
     char *graph_filename = argv[1];
     int damping = atoi(argv[2]);
+
+    map <int, Page> input_pages;
+    map <int, int> lookup;
 
     std::vector<Page> pages;
     std::vector<int> out_link_cnts;
@@ -101,36 +125,73 @@ int main(int argc, char** argv){
       if (fscanf(fid,"%d,%d\n", &from_idx,&to_idx)) {
         
         
-        from_idx_pos = find_element(pages, from_idx);
-        to_idx_pos = find_element(pages, to_idx);
+        // from_idx_pos = find_element(pages, from_idx);
+        // to_idx_pos = find_element(pages, to_idx);
 
-        if ( from_idx_pos < 0){
-          cout << "New page for: " << from_idx << endl;
-          pages.push_back(Page());
-          pages[num_pages].ID = from_idx;
-          num_pages++;
-        }
-        if (to_idx_pos < 0){
-          cout << "New page for: " << to_idx << endl;
-          pages.push_back(Page());
-          pages[num_pages].ID = to_idx;
-          num_pages++;
-        }
-        from_idx_pos = find_element(pages, from_idx);
-        to_idx_pos = find_element(pages, to_idx);
-        // cout << "From idx pos: " << from_idx_pos << endl;
-        // cout << "To idx pos: " << to_idx_pos << endl;
-        pages[to_idx_pos].num_in_pages++;
-        pages[to_idx_pos].incoming_ids.push_back(from_idx);
-        pages[from_idx_pos].num_out_pages++;
+        // if ( from_idx_pos < 0){
+        //   // cout << "New page for: " << from_idx << endl;
+        //   pages.push_back(Page());
+        //   pages[num_pages].ID = from_idx;
+        //   num_pages++;
+        // }
+        // if (to_idx_pos < 0){
+        //   // cout << "New page for: " << to_idx << endl;
+        //   pages.push_back(Page());
+        //   pages[num_pages].ID = to_idx;
+        //   num_pages++;
+        // }
+        // from_idx_pos = find_element(pages, from_idx);
+        // to_idx_pos = find_element(pages, to_idx);
+        // // cout << "From idx pos: " << from_idx_pos << endl;
+        // // cout << "To idx pos: " << to_idx_pos << endl;
+        // pages[to_idx_pos].num_in_pages++;
+        // pages[to_idx_pos].incoming_ids.push_back(from_idx);
+        // pages[from_idx_pos].num_out_pages++;
+        if (!input_pages.count(from_idx)) {
+              input_pages[from_idx] = Page();
+              input_pages[from_idx].num_in_pages = 0;
+              input_pages[from_idx].num_out_pages = 0;
+              input_pages[from_idx].page_rank = 0;
+              lookup[num_pages] = from_idx;
+              num_pages++;
+          }
+          if (!input_pages.count(to_idx)) {
+              input_pages[to_idx] = Page();
+              input_pages[to_idx].num_in_pages = 0;
+              input_pages[to_idx].num_out_pages = 0;
+              input_pages[to_idx].page_rank = 0;
+              lookup[num_pages] = to_idx;
+              num_pages++;
+          }
+
+          input_pages[from_idx].num_out_pages++;
+          input_pages[to_idx].num_in_pages++;
+          input_pages[to_idx].incoming_ids.push_back(from_idx);
       }
    }
+
+
    cout << "Num pages: " << num_pages<< endl;
    out_link_cnts.reserve(num_pages);
+
    for (int i=0; i<num_pages;i++){
-     out_link_cnts.push_back(pages[i].num_out_pages);
+     out_link_cnts.push_back(input_pages[i].num_out_pages);
    }
-  
+
+   for (auto & i: out_link_cnts){
+     cout << i << " ";
+   }
+
+  for (int i=0; i<num_pages;i++){
+    pages.push_back(Page());
+    pages[i].num_in_pages = input_pages[i].num_in_pages;
+    pages[i].num_out_pages = input_pages[i].num_out_pages;
+          
+    for (int j=0;j<input_pages[i].incoming_ids.size();j++){
+      pages[i].incoming_ids.push_back(input_pages[i].incoming_ids[j]);
+    } 
+  }
+
   // cout << "Out size: " << out_link_cnts.size() <<endl;
 
   cout<<"Graph data loaded in "<<(double)(clock() - tStart)/CLOCKS_PER_SEC<<"s"<<endl;
@@ -142,18 +203,20 @@ int main(int argc, char** argv){
   bool go_on = true;
 	int step = 0;
 	// while (go_on) {
+  
+  clock_t aStart = clock();
+  for (int iter = 0; iter < 10; iter++){
+
 		std::copy(pr.begin(), pr.end(), old_pr.begin());
 
 		AddPagesPr(pages, out_link_cnts, old_pr, pr);
+    AddDanglingPagesPr(dangling_pages, old_pr, pr);
+		AddRandomJumpsPr(0.85, pr);
 
-    std::copy(pr.begin(), pr.end(), old_pr.begin());
+  }
 
-		AddPagesPr(pages, out_link_cnts, old_pr, pr);
-
-    std::copy(pr.begin(), pr.end(), old_pr.begin());
-
-		AddPagesPr(pages, out_link_cnts, old_pr, pr);
-
-    for (auto i: pr)
-      std::cout << i << ' ';    
+  cout<<"Algorithm terminated in "<<(double)(clock() - tStart)/CLOCKS_PER_SEC<<"s"<<endl;
+  
+  for (auto i: pr)
+    std::cout << i << ' ';    
 }
