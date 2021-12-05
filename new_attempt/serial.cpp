@@ -6,6 +6,7 @@
 #include <time.h>
 #include <math.h>
 #include <algorithm>
+#include <cmath>
 
 using namespace std;
 
@@ -93,6 +94,16 @@ void AddRandomJumpsPr(
 	for (long double &pr : new_pr) {
 		pr = pr * damping_factor + (1 - damping_factor) / new_pr.size();
 	}
+}
+
+long double L1Norm(
+		const std::vector<long double> a,
+		const std::vector<long double> b) {
+	long double sum = 0;
+	for (int i = 0; i < a.size(); i++) {
+		sum += std::abs(a[i] - b[i]);
+	}
+	return sum;
 }
 
 int main(int argc, char** argv){
@@ -223,13 +234,15 @@ int main(int argc, char** argv){
 	// while (go_on) {
   
   clock_t aStart = clock();
-  for (int iter = 0; iter < 10; iter++){
+  for (int iter = 0; iter < 80; iter++){
 
 		std::copy(pr.begin(), pr.end(), old_pr.begin());
 
 		AddPagesPr(pages, out_link_cnts, old_pr, pr);
     AddDanglingPagesPr(dangling_pages, old_pr, pr);
 		AddRandomJumpsPr(0.85, pr);
+    long double err = L1Norm(pr, old_pr);
+    cout << "Error: " << std::setprecision(10) << std::fixed << err << endl;
 
   }
 
