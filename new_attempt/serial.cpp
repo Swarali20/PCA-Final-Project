@@ -9,7 +9,7 @@
 #include <cmath>
 #include <iomanip>
 #include <omp.h>
-
+#include <chrono>
 using namespace std;
 
 struct Page {
@@ -62,23 +62,19 @@ void AddPagesPr(
 		std::vector<long double> &old_pr,
 		std::vector<long double> &new_pr) {
 
-  std::vector<long double> pr;
-  pr.reserve(pages.size());
-  #pragma omp parallel for 
+  int pr[pages.size()];
+  int chunk_size = 8;
+  #pragma omp parallel for schedule(dynamic, 128)
 	for (int i = 0; i < pages.size(); i++) {
-    
 
 		long double sum = 0;
     int  num_incoming = pages[i].incoming_ids.size();
 
-    // #pragma omp parallel for shared(sum)
+    // #pragma omp parallel for reduction(+:sum)
     for (int j = 0 ; j < num_incoming; j++){
-        int in_id = pages[i].incoming_ids[j];
-        // cout << out_link_cnts[in_id] << endl;
-        // if (out_link_cnts[in_id] != 0) 
-          sum += old_pr[in_id] / out_link_cnts[in_id];
+        int in_id = pages[i].incoming_ids[j]; 
+        sum += old_pr[in_id] / out_link_cnts[in_id];
     }
-		// pr[i] = sum;
     new_pr[i] = sum;
 	}
 
@@ -117,6 +113,9 @@ long double L1Norm(
 }
 
 int main(int argc, char** argv){
+  using namespace std::chrono;
+  typedef std::chrono::high_resolution_clock Clock;
+  typedef std::chrono::duration<double> dsec;
 
     if (argc != 3) {
         cout << "Provide path to file and thread count\n";
@@ -221,7 +220,9 @@ int main(int argc, char** argv){
 	int step = 0;
 	// while (go_on) {
   
-  clock_t aStart = clock();
+  // clock_t aStart = clock();
+  auto compute_start = Clock::now();
+  double compute_time = 0;
   for (int iter = 0; iter < 80; iter++){
 
 		std::copy(pr.begin(), pr.end(), old_pr.begin());
@@ -238,7 +239,9 @@ int main(int argc, char** argv){
 
   }
 
-  cout<<"Algorithm terminated in "<<(double)(clock() - aStart)/CLOCKS_PER_SEC<<"s"<<endl;
+  // cout<<"Algorithm terminated in "<<(double)(clock() - aStart)/CLOCKS_PER_SEC<<"s"<<endl;
+  compute_time += duration_cast<dsec>(Clock::now() - compute_start).count();
+  printf("Computation Time: %lf.\n", compute_time);
   
   // for (auto i: pr)
   //   std::cout << i << ' '; 
