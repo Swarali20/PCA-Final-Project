@@ -7,6 +7,8 @@
 #include <math.h>
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
+#include <omp.h>
 
 using namespace std;
 
@@ -56,23 +58,31 @@ int find_element(const std::vector<Page> &pages, int ID){
 
 void AddPagesPr(
 		std::vector<Page> &pages,
-		std::vector<int> &out_link_cnts,
+		std::vector<int> out_link_cnts,
 		std::vector<long double> &old_pr,
 		std::vector<long double> &new_pr) {
+
+  std::vector<long double> pr;
+  pr.reserve(pages.size());
+  #pragma omp parallel for 
 	for (int i = 0; i < pages.size(); i++) {
+    
+
 		long double sum = 0;
-    if (pages[i].num_in_pages>0){
-      int num_incoming = pages[i].incoming_ids.size();
-      // cout << "Incoming: ";
-      for (int j = 0 ; j<num_incoming;j++){
-          int in_id = pages[i].incoming_ids[j];
-          // int from_page = find_element(pages, in_id);
-          // cout << in_id << endl;
+    int  num_incoming = pages[i].incoming_ids.size();
+
+    // #pragma omp parallel for shared(sum)
+    for (int j = 0 ; j < num_incoming; j++){
+        int in_id = pages[i].incoming_ids[j];
+        // cout << out_link_cnts[in_id] << endl;
+        // if (out_link_cnts[in_id] != 0) 
           sum += old_pr[in_id] / out_link_cnts[in_id];
-      }
     }
-		new_pr[i] = sum;
+		// pr[i] = sum;
+    new_pr[i] = sum;
 	}
+
+  // std::copy(pr.begin(), pr.end(), new_pr.begin());
 }
 
 void AddDanglingPagesPr(
@@ -114,7 +124,8 @@ int main(int argc, char** argv){
     }
 
     char *graph_filename = argv[1];
-    int damping = atoi(argv[2]);
+    int num_threads = atoi(argv[2]);
+    omp_set_num_threads(num_threads);
 
     map <int, Page> input_pages;
     map <int, int> lookup;
@@ -136,30 +147,7 @@ int main(int argc, char** argv){
 
     while (!feof(fid)) {
       if (fscanf(fid,"%d,%d\n", &from_idx,&to_idx)) {
-        
-        
-        // from_idx_pos = find_element(pages, from_idx);
-        // to_idx_pos = find_element(pages, to_idx);
-
-        // if ( from_idx_pos < 0){
-        //   // cout << "New page for: " << from_idx << endl;
-        //   pages.push_back(Page());
-        //   pages[num_pages].ID = from_idx;
-        //   num_pages++;
-        // }
-        // if (to_idx_pos < 0){
-        //   // cout << "New page for: " << to_idx << endl;
-        //   pages.push_back(Page());
-        //   pages[num_pages].ID = to_idx;
-        //   num_pages++;
-        // }
-        // from_idx_pos = find_element(pages, from_idx);
-        // to_idx_pos = find_element(pages, to_idx);
-        // // cout << "From idx pos: " << from_idx_pos << endl;
-        // // cout << "To idx pos: " << to_idx_pos << endl;
-        // pages[to_idx_pos].num_in_pages++;
-        // pages[to_idx_pos].incoming_ids.push_back(from_idx);
-        // pages[from_idx_pos].num_out_pages++;
+ 
         if (!input_pages.count(from_idx)) {
               input_pages[from_idx] = Page();
               input_pages[from_idx].num_in_pages = 0;
@@ -239,15 +227,21 @@ int main(int argc, char** argv){
 		std::copy(pr.begin(), pr.end(), old_pr.begin());
 
 		AddPagesPr(pages, out_link_cnts, old_pr, pr);
+    // for (int i = 0; i < pr.size(); i++) {
+    //   cout << pr[i] << ", ";
+    // }
+    // cout << endl;
     AddDanglingPagesPr(dangling_pages, old_pr, pr);
 		AddRandomJumpsPr(0.85, pr);
-    long double err = L1Norm(pr, old_pr);
-    cout << "Error: " << std::setprecision(10) << std::fixed << err << endl;
+    // long double err = L1Norm(pr, old_pr);
+    // cout << "Error: " << std::setprecision(10) << std::fixed << err << endl;
 
   }
 
   cout<<"Algorithm terminated in "<<(double)(clock() - aStart)/CLOCKS_PER_SEC<<"s"<<endl;
   
   // for (auto i: pr)
-  //   std::cout << i << ' ';    
+  //   std::cout << i << ' '; 
+
+  // cout << endl;   
 }
