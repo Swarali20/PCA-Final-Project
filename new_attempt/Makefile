@@ -3,7 +3,7 @@ APP_NAME=serial
 OBJS=serial.o 
 
 CXX = g++ -m64 -std=c++11 -g
-CXXFLAGS = -I.  -fopenmp -Wno-unknown-pragmas
+CXXFLAGS = -I.  -fopenmp -Wno-unknown-pragmas -mfma -mavx 
 
 default: $(APP_NAME)
 
