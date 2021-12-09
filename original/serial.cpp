@@ -108,14 +108,15 @@ int main(int argc, char** argv){
 	load_time += duration_cast<dsec>(Clock::now() - load_start).count();
 	printf("Graph data loaded in: %lf.\n", load_time);
 
-	auto compute_start = Clock::now();
-	double compute_time = 0;
+	
 	float initialize_score = 1.0 / num_pages;
 	for(auto& x : pages)
 		x.second.page_rank = initialize_score;
 
-	int num_iterations = 5;
+	int num_iterations = 10;
 	int idx;
+	auto compute_start = Clock::now();
+	double compute_time = 0;
 	for (int iter = 0; iter < num_iterations;iter++){
 		for (int i = 0; i<pages.size();i++){
 			idx = lookup[i];
