@@ -103,7 +103,7 @@ int main(int argc, char** argv){
   float damping = 0.85f;
   char *graph_filename = NULL;
    do {
-    opt = getopt(argc, argv, "f:n:i:");
+    opt = getopt(argc, argv, "f:d:");
     switch (opt) {
     case 'f':
       graph_filename = optarg;
