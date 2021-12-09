@@ -83,7 +83,6 @@ void AddPagesPr(
       sum = sum +  (old_pr[in_id1] * out_link_cnts_rcp[in_id1]);
     }
 
-
     new_pr[start_index] = sum;
   }
 	for (int i = start_index; i < end_index; i++) {
@@ -129,17 +128,7 @@ void AddDanglingPagesPr(
 
   int new_pr_size = new_pr.size();
   double val = sum/new_pr_size;
-  // // __m256d val_buf = _mm256_broadcast_sd(&val);
-  // __m256 val_buf = _mm256_set1_ps(val);
-  // __m256 pr_buf, pr_buf1;
- 
-  // new_pr_size = (new_pr_size/8) * 8;
-  //  #pragma omp parallel for 
-  // for (int i = 0; i < new_pr_size; i+= 8) {
-  //   pr_buf = _mm256_loadu_ps(&(new_pr[i]));
-  //   pr_buf1 = _mm256_add_ps(pr_buf, val_buf);
-  //   _mm256_storeu_ps(&(new_pr[i]), pr_buf1);
-  // }
+
   for (int i = 0; i < new_pr_size; i++) {
     new_pr[i] += val;
   }
@@ -152,22 +141,10 @@ void AddRandomJumpsPr(
 		std::vector<float> &new_pr) {
     int new_pr_size = new_pr.size();
     double val = (1- damping_factor) * 1.0 /new_pr_size;
-  //   __m256 val_buf = _mm256_set1_ps(val);
-  //   __m256 damping_buf = _mm256_set1_ps(damping_factor);
-  //   __m256 pr_buf, pr_buf1;
 
-  // // #pragma omp parallel for schedule(dynamic, 128)
-  // for (int i = 0; i < (new_pr_size/8) * 8; i+=8) {
-  //   pr_buf = _mm256_loadu_ps(&new_pr[i]);
-  //   pr_buf1 = _mm256_fmadd_ps(pr_buf, damping_buf, val_buf);
-  //   _mm256_storeu_ps(&(new_pr[i]),pr_buf1);
-	// }
-  // for (int i = (new_pr_size/8) * 8; i < new_pr_size; i++){
-  //   	new_pr[i] = new_pr[i] * damping_factor + (1 - damping_factor) * val;
-  // }
   for (int i = 0; i < new_pr_size; i++) {
 		new_pr[i] = new_pr[i] * damping_factor + val;
-    // new_pr[i] = new_pr[i] * damping_factor + (1 - damping_factor) /new_pr_size;
+    
 	}
 }
 
@@ -246,7 +223,6 @@ int main(int argc, char** argv){
 
     while (!feof(fid)) {
       if (fscanf(fid,"%d,%d\n", &from_idx,&to_idx)) {
- 
         if (!input_pages.count(from_idx)) {
               input_pages[from_idx] = Page();
               input_pages[from_idx].num_in_pages = 0;
@@ -323,7 +299,7 @@ int main(int argc, char** argv){
 
   // // cout<<"Graph data loaded in "<<(double)(clock() - tStart)/CLOCKS_PER_SEC<<"s"<<endl;
   load_time += duration_cast<dsec>(Clock::now() - load_start).count();
-  // printf("Graph data loaded in: %lf.\n", load_time);
+  printf("Graph data loaded in: %lf.\n", load_time);
 
   std::vector<int> dangling_pages = ExploreDanglingPages(out_link_cnts);
   std::vector<float> pr = InitPr(num_pages);
@@ -335,26 +311,12 @@ int main(int argc, char** argv){
   int chunk_size = num_pages/nproc;
   int start_index = procID * chunk_size;
   int end_index = start_index + chunk_size;
-  if (procID == 0) {
-  cout << "chunk size: " << chunk_size << endl;
-  cout << "remainder: " << reminder_cnt << endl;
-  }
-  // auto compute_start = Clock::now();
-  // double compute_time = 0;
-  // double addPage_time = 0;
-  // double other_compute = 0;
 
-// MPI_Bcast(global_pr.data(), global_page_cnt, MPI_LONG_DOUBLE, 0, MPI_COMM_WORLD);
-// 		if (world_rank == 0) {
-// 			std::copy(global_pr.begin(), global_pr.end(), old_pr.begin());
-// 		}
-  
-  // MPI_Gather(pr.data(), pages_per_proc, MPI_LONG_DOUBLE,
-	// 			global_pr.data(), pages_per_proc, MPI_LONG_DOUBLE, 0, MPI_COMM_WORLD);
-
-	// 	if (world_rank == 0) {
-	// 		std::copy(pr.begin() + pages_per_proc, pr.end(),
-	// 				global_pr.begin() + reminder_begin);
+  auto compute_start = Clock::now();
+  double compute_time = 0;
+  double addPage_time = 0;
+  double other_compute = 0;
+  MPI_Barrier(MPI_COMM_WORLD);
   for (int iter = 0; iter < 80; iter++){
 
 	// 	std::copy(pr.begin(), pr.end(), old_pr.begin());
@@ -363,50 +325,35 @@ int main(int argc, char** argv){
     // if (procID == 0) {
 			std::copy(pr.begin(), pr.end(), old_pr.begin());
 		// }
-  //   auto addPage_start = Clock::now();
+    // auto addPage_start = Clock::now();
 		AddPagesPr(pages, out_link_cnts_rcp, old_pr, pr, start_index, end_index, procID);
-  //   addPage_time += duration_cast<dsec>(Clock::now() - addPage_start).count();
-    MPI_Allgather(&(pr[start_index]), chunk_size, MPI_FLOAT,
-				&(pr[0]), chunk_size, MPI_FLOAT, MPI_COMM_WORLD);
+    // addPage_time += duration_cast<dsec>(Clock::now() - addPage_start).count();
+    MPI_Allgather(&(pr[start_index]), chunk_size, MPI_FLOAT, &(pr[0]), chunk_size, MPI_FLOAT, MPI_COMM_WORLD);
 
-
-  //   auto other_compute_start = Clock::now();
+    MPI_Barrier(MPI_COMM_WORLD);
+    // auto other_compute_start = Clock::now();
 
   if (procID == 0){
     
-
     AddPagesPr(pages, out_link_cnts_rcp, old_pr, pr, reminder_begin, reminder_end, procID);
-    // if (procID == 0) {
-    //   for (auto i: pr)
-    //     std::cout << i << ' ';
-    //   cout << endl;
-    // } 
     AddDanglingPagesPr(dangling_pages, old_pr, pr);
-
-		AddRandomJumpsPr(0.85, pr);
-    // for (auto i: pr)
-    //   std::cout << i << ' '; 
-
-    // cout << endl; 
+		AddRandomJumpsPr(0.85, pr); 
   }
-  //   other_compute += duration_cast<dsec>(Clock::now() - other_compute_start).count();
+    // other_compute += duration_cast<dsec>(Clock::now() - other_compute_start).count();
     
-  //   // double err = L1Norm(pr, old_pr);
-  //   // cout << "Error: " << std::setprecision(10) << std::fixed << err << endl;
-
   }
  
   // // cout<<"Algorithm terminated in "<<(double)(clock() - aStart)/CLOCKS_PER_SEC<<"s"<<endl;
-  // compute_time += duration_cast<dsec>(Clock::now() - compute_start).count();
-  // printf("Computation Time: %lf.\n", compute_time);
+  compute_time += duration_cast<dsec>(Clock::now() - compute_start).count();
+  printf("Computation Time: %lf.\n", compute_time);
   //  printf("AddPage Time: %lf.\n", addPage_time);
   // printf("other_compute Time: %lf.\n", other_compute);
-  if(procID == 0){
-  for (auto i: pr)
-    std::cout << i << ' '; 
+  // if(procID == 0){
+  // for (auto i: pr)
+  //   std::cout << i << ' '; 
 
   cout << endl; 
-  }  
+  // }  
   
   MPI_Finalize();
 }
