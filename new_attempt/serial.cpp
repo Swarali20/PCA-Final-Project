@@ -42,10 +42,10 @@ std::vector<int> ExploreDanglingPages(std::vector<int> &out_link_cnts) {
 }
 
 
-std::vector<double> InitPr(int page_cnt) {
-	std::vector<double> pr;
+std::vector<float> InitPr(int page_cnt) {
+	std::vector<float> pr;
 	pr.reserve(page_cnt);
-  double init_pr = 1.0/page_cnt;
+  float init_pr = 1.0/page_cnt;
 	for (int i = 0; i < page_cnt; i++) {
 		pr.push_back(init_pr);
 	}
@@ -70,23 +70,37 @@ void AddPagesPr(
 		std::vector<Page> &pages,
 		std::vector<double> out_link_cnts_rcp,
     // std::vector<int> out_link_cnts,
-		std::vector<double> &old_pr,
-		std::vector<double> &new_pr) {
+		std::vector<float> &old_pr,
+		std::vector<float> &new_pr) {
 
-  // #pragma omp parallel for schedule(dynamic, 128)
+  #pragma omp parallel for schedule(dynamic, 128)
   // #pragma omp simd
 	for (int i = 0; i < pages.size(); i++) {
 
 		double sum = 0;
-    // int  num_incoming = pages[i].size_incoming_ids;
-    int num_incoming = pages[i].incoming_ids.size();
+    int  num_incoming = pages[i].size_incoming_ids;
+    // int num_incoming = pages[i].incoming_ids.size();
     // #pragma omp parallel for reduction(+:sum)
-    for (int j = 0 ; j < num_incoming; j++){
+    for (int j = 0 ; j < (num_incoming/4)*4; j+= 4){
        
-        int in_id = pages[i].incoming_ids[j]; 
-        sum += (old_pr[in_id] * out_link_cnts_rcp[in_id]);
+        int in_id1 = pages[i].incoming_ids[j]; 
+        int in_id2 = pages[i].incoming_ids[j+1]; 
+        int in_id3 = pages[i].incoming_ids[j + 2]; 
+        int in_id4 = pages[i].incoming_ids[j+3]; 
+        sum = sum +  (old_pr[in_id1] * out_link_cnts_rcp[in_id1]) + 
+         (old_pr[in_id2] * out_link_cnts_rcp[in_id2]) + (old_pr[in_id3] * out_link_cnts_rcp[in_id3]) 
+         +  (old_pr[in_id4] * out_link_cnts_rcp[in_id4]);
         // sum += (old_pr[in_id] / out_link_cnts[in_id]);
     }
+    for (int j = (num_incoming/4)*4; j < num_incoming; j++){
+      int in_id1 = pages[i].incoming_ids[j];
+      sum = sum +  (old_pr[in_id1] * out_link_cnts_rcp[in_id1]);
+    }
+    // for (int j = 0; j < num_incoming; j++){
+    //   int in_id1 = pages[i].incoming_ids[j];
+    //   sum = sum +  (old_pr[in_id1] * out_link_cnts_rcp[in_id1]);
+    // }
+
     new_pr[i] = sum;
 	}
 
@@ -97,8 +111,8 @@ void AddPagesPr(
 void AddDanglingPagesPr(
 		std::vector<int> &dangling_pages,
     // std::vector<int> &dangling_pangle,
-		std::vector<double> &old_pr,
-		std::vector<double> &new_pr) {
+		std::vector<float> &old_pr,
+		std::vector<float> &new_pr) {
 	double sum = 0;
   // #pragma omp parallel for reduction (+:sum)
   int dangling_pages_size = dangling_pages.size();
@@ -111,14 +125,15 @@ void AddDanglingPagesPr(
   int new_pr_size = new_pr.size();
   double val = sum/new_pr_size;
   // __m256d val_buf = _mm256_broadcast_sd(&val);
-  __m256d val_buf = _mm256_set1_pd(val);
-  __m256d pr_buf;
+  __m256 val_buf = _mm256_set1_ps(val);
+  __m256 pr_buf, pr_buf1;
   // // #pragma omp parallel for 
-  new_pr_size = (new_pr_size/4) * 4;
-  for (int i = 0; i < new_pr_size; i+= 4) {
-    pr_buf = _mm256_loadu_pd(&(new_pr[i]));
-    pr_buf = _mm256_add_pd(pr_buf, val_buf);
-    _mm256_storeu_pd(&(new_pr[i]), pr_buf);
+  new_pr_size = (new_pr_size/8) * 8;
+  //  #pragma omp parallel for 
+  for (int i = 0; i < new_pr_size; i+= 8) {
+    pr_buf = _mm256_loadu_ps(&(new_pr[i]));
+    pr_buf1 = _mm256_add_ps(pr_buf, val_buf);
+    _mm256_storeu_ps(&(new_pr[i]), pr_buf1);
   }
   // for (int i = 0; i < new_pr_size; i++) {
   //   new_pr[i] += val;
@@ -131,22 +146,22 @@ void AddDanglingPagesPr(
 
 void AddRandomJumpsPr(
 		double damping_factor,
-		std::vector<double> &new_pr) {
+		std::vector<float> &new_pr) {
     int new_pr_size = new_pr.size();
     double val = (1- damping_factor) * 1.0 /new_pr_size;
-    __m256d val_buf = _mm256_set1_pd(val);
-    __m256d damping_buf = _mm256_set1_pd(damping_factor);
-    __m256d pr_buf, pr_buf1;
+    __m256 val_buf = _mm256_set1_ps(val);
+    __m256 damping_buf = _mm256_set1_ps(damping_factor);
+    __m256 pr_buf, pr_buf1;
 	// for (double &pr : new_pr) {
   // #pragma omp parallel for schedule(dynamic, 128)
-  for (int i = 0; i < (new_pr_size/4) * 4; i+=4) {
-    pr_buf = _mm256_loadu_pd(&new_pr[i]);
-    pr_buf1 = _mm256_fmadd_pd(pr_buf, damping_buf, val_buf);
+  for (int i = 0; i < (new_pr_size/8) * 8; i+=8) {
+    pr_buf = _mm256_loadu_ps(&new_pr[i]);
+    pr_buf1 = _mm256_fmadd_ps(pr_buf, damping_buf, val_buf);
 		// new_pr[i] = new_pr[i] * damping_factor +  val;
-    _mm256_storeu_pd(&(new_pr[i]),pr_buf1);
+    _mm256_storeu_ps(&(new_pr[i]),pr_buf1);
     // new_pr[i] = new_pr[i] * damping_factor + (1 - damping_factor) /new_pr_size;
 	}
-  for (int i = (new_pr_size/4) * 4; i < new_pr_size; i++){
+  for (int i = (new_pr_size/8) * 8; i < new_pr_size; i++){
     	new_pr[i] = new_pr[i] * damping_factor + (1 - damping_factor) * val;
   }
   // for (int i = 0; i < new_pr_size; i++) {
@@ -281,8 +296,8 @@ int main(int argc, char** argv){
   printf("Graph data loaded in: %lf.\n", load_time);
 
   std::vector<int> dangling_pages = ExploreDanglingPages(out_link_cnts);
-  std::vector<double> pr = InitPr(num_pages);
-	std::vector<double> old_pr(num_pages);
+  std::vector<float> pr = InitPr(num_pages);
+	std::vector<float> old_pr(num_pages);
 
   auto compute_start = Clock::now();
   double compute_time = 0;
