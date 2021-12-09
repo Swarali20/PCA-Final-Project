@@ -1,5 +1,5 @@
-APP_NAME=mpi_version
-OBJS += mpi_version.o
+APP_NAME=parallel
+OBJS += parallel.o
 # OBJS += main.o
 
 CXX = mpic++
