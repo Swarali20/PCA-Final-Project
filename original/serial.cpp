@@ -46,7 +46,8 @@ int main(int argc, char** argv){
 	int opt = 0;
 	char *graph_filename = NULL;
 	int num_threads = 1;
-	float damping = 0.0f;
+	float damping = 0.85;
+	
 	do {
 		opt = getopt(argc, argv, "f:d");
 		switch (opt) {

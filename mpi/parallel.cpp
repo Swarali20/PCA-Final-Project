@@ -167,6 +167,7 @@ int main(int argc, char** argv){
 
   MPI_Comm_rank(MPI_COMM_WORLD, &procID);
   MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+  
   if (procID == 0){
     cout << "Total procs: " << nproc << endl;
   }
@@ -298,23 +299,28 @@ int main(int argc, char** argv){
 
   auto compute_start = Clock::now();
   double compute_time = 0;
-  double addPage_time = 0;
+  double broadcast_time = 0;
   double other_compute = 0;
   // MPI_Barrier(MPI_COMM_WORLD);
   for (int iter = 0; iter < 80; iter++){
+      
+    // auto broadcast_start = Clock::now();
 
     MPI_Bcast(pr.data(), num_pages, MPI_FLOAT, 0, MPI_COMM_WORLD);
-		
+    
+    // broadcast_time += duration_cast<dsec>(Clock::now() - broadcast_start).count();
+
     if (procID == 0) {
 			std::copy(pr.begin(), pr.end(), old_pr.begin());
 		}
-    // auto addPage_start = Clock::now();
+    
 		AddPagesPr(pages, out_link_cnts_rcp, old_pr, pr, start_index, end_index, procID);
-    // addPage_time += duration_cast<dsec>(Clock::now() - addPage_start).count();
-    MPI_Allgather(&(pr[start_index]), chunk_size, MPI_FLOAT, &(pr[0]), chunk_size, MPI_FLOAT, MPI_COMM_WORLD);
-
-    // MPI_Barrier(MPI_COMM_WORLD);
+  
     // auto other_compute_start = Clock::now();
+    MPI_Allgather(&(pr[start_index]), chunk_size, MPI_FLOAT, &(pr[0]), chunk_size, MPI_FLOAT, MPI_COMM_WORLD);
+    // other_compute += duration_cast<dsec>(Clock::now() - other_compute_start).count();
+    // MPI_Barrier(MPI_COMM_WORLD);
+    
 
   if (procID == 0){
     
@@ -322,12 +328,14 @@ int main(int argc, char** argv){
     AddDanglingPagesPr(dangling_pages, old_pr, pr);
 		AddRandomJumpsPr(0.85, pr); 
   }
-    // other_compute += duration_cast<dsec>(Clock::now() - other_compute_start).count();
+   
     
   }
  
   compute_time += duration_cast<dsec>(Clock::now() - compute_start).count();
   printf("Computation Time: %lf.\n", compute_time);
+  // printf("Broadcast time: %lf.\n", broadcast_time);
+	// printf("AllGather time: %lf.\n", other_compute);
 
   
   MPI_Finalize();

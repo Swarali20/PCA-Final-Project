@@ -274,26 +274,29 @@ int main(int argc, char** argv){
 
 	auto compute_start = Clock::now();
 	double compute_time = 0;
-	// double addPage_time = 0;
-	// double other_compute = 0;
+	double addPage_time = 0;
+	double other_compute = 0;
 	for (int iter = 0; iter < 80; iter++){
 
 		std::copy(pr.begin(), pr.end(), old_pr.begin());
 
-		// auto addPage_start = Clock::now();
+		auto addPage_start = Clock::now();
 		AddPagesPr(pages, out_link_cnts_rcp, old_pr, pr);
 
-		// addPage_time += duration_cast<dsec>(Clock::now() - addPage_start).count();
+		addPage_time += duration_cast<dsec>(Clock::now() - addPage_start).count();
 
-		// auto other_compute_start = Clock::now();
+		auto other_compute_start = Clock::now();
 		AddDanglingPagesPr(dangling_pages, old_pr, pr);
 
 		AddRandomJumpsPr(0.85, pr);
 
-		// other_compute += duration_cast<dsec>(Clock::now() - other_compute_start).count();
+		other_compute += duration_cast<dsec>(Clock::now() - other_compute_start).count();
 
 	}
 	compute_time += duration_cast<dsec>(Clock::now() - compute_start).count();
+	
+	printf("Add page time: %lf.\n", addPage_time);
+	printf("Other compute time: %lf.\n", other_compute);
 	printf("Computation Time: %lf.\n", compute_time);
 
 	// for (auto i: pr)
