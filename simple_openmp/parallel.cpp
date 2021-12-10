@@ -66,7 +66,6 @@ void AddPagesPr(
 		std::vector<float> &new_pr) {
 
   #pragma omp parallel for schedule(dynamic, 128)
-	// #pragma omp parallel for 
 	for (int i = 0; i < pages.size(); i++) {
 
 		double sum = 0;
@@ -90,14 +89,11 @@ void AddPagesPr(
 	}
 }
 
-
-
 void AddDanglingPagesPr(
 		std::vector<int> &dangling_pages,
 		std::vector<float> &old_pr,
 		std::vector<float> &new_pr) {
 	double sum = 0;
-	// #pragma omp parallel for reduction (+:sum)
 	int dangling_pages_size = dangling_pages.size();
 	for (int i = 0; i < dangling_pages_size; i++) {
 		sum += old_pr[dangling_pages[i]];
@@ -137,8 +133,6 @@ int main(int argc, char** argv){
 	typedef std::chrono::duration<double> dsec;
 
   int opt = 0;
-	
-
 	char *graph_filename = NULL;
 	int num_threads = 1;
   float damping = 0.85;
@@ -214,7 +208,6 @@ int main(int argc, char** argv){
 		}
 	}
 
-
 	cout << "Num pages: " << num_pages<< endl;
 	out_link_cnts.reserve(num_pages);
 	out_link_cnts_rcp.reserve(num_pages);
@@ -222,11 +215,9 @@ int main(int argc, char** argv){
 	int idx;
 	for (int i=0; i<num_pages;i++){
 		idx = lookup[i]; 
-
 		out_link_cnts.push_back(input_pages[idx].num_out_pages);
 		if (input_pages[idx].num_out_pages != 0) {
 			out_link_cnts_rcp.push_back(1.0/input_pages[idx].num_out_pages);
-
 		} else {
 			out_link_cnts_rcp.push_back(0);
 		}
@@ -234,17 +225,14 @@ int main(int argc, char** argv){
 
 	int vec_idx;
 	for (int i=0; i<num_pages;i++){
+		
 		pages.push_back(Page());
-
 		idx = lookup[i];
 		pages[i].num_in_pages = input_pages[idx].num_in_pages;
 		pages[i].ID = idx;
-
 		for (int j=0;j<input_pages[idx].incoming_ids.size();j++){
-
 			vec_idx = rev_lookup[input_pages[idx].incoming_ids[j]];
 			pages[i].incoming_ids.push_back(vec_idx);
-
 		} 
 		pages[i].size_incoming_ids = pages[i].incoming_ids.size();
 	}
@@ -263,17 +251,12 @@ int main(int argc, char** argv){
 	for (int iter = 0; iter < 80; iter++){
 
 		std::copy(pr.begin(), pr.end(), old_pr.begin());
-
 		auto addPage_start = Clock::now();
 		AddPagesPr(pages, out_link_cnts_rcp, old_pr, pr);
-
 		addPage_time += duration_cast<dsec>(Clock::now() - addPage_start).count();
-
 		auto other_compute_start = Clock::now();
 		AddDanglingPagesPr(dangling_pages, old_pr, pr);
-
 		AddRandomJumpsPr(0.85, pr);
-
 		other_compute += duration_cast<dsec>(Clock::now() - other_compute_start).count();
 
 	}

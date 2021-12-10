@@ -71,9 +71,7 @@ void AddPagesPr(
 
 		double sum = 0;
 		int  num_incoming = pages[i].size_incoming_ids;
-
 		for (int j = 0 ; j < (num_incoming/4)*4; j+= 4){
-
 			int in_id1 = pages[i].incoming_ids[j]; 
 			int in_id2 = pages[i].incoming_ids[j+1]; 
 			int in_id3 = pages[i].incoming_ids[j + 2]; 
@@ -228,25 +226,21 @@ int main(int argc, char** argv){
 		}
 	}
 
-
 	cout << "Num pages: " << num_pages<< endl;
 	out_link_cnts.reserve(num_pages);
 	out_link_cnts_rcp.reserve(num_pages);
 
 	int idx;
+	
 	for (int i=0; i<num_pages;i++){
 		idx = lookup[i]; 
-
 		out_link_cnts.push_back(input_pages[idx].num_out_pages);
 		if (input_pages[idx].num_out_pages != 0) {
 			out_link_cnts_rcp.push_back(1.0/input_pages[idx].num_out_pages);
-
 		} else {
 			out_link_cnts_rcp.push_back(0);
 		}
-
 	}
-
 
 	int vec_idx;
 	for (int i=0; i<num_pages;i++){
@@ -298,8 +292,4 @@ int main(int argc, char** argv){
 	printf("Other compute time: %lf.\n", other_compute);
 	printf("Computation Time: %lf.\n", compute_time);
 
-	// for (auto i: pr)
-	//   std::cout << i << ' '; 
-
-	// cout << endl;   
 }
