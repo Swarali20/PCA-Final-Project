@@ -9,9 +9,9 @@
 #include <cstdlib>
 #include <unistd.h>
 #include <chrono>
-
 using namespace std;
 
+//Data structure to hold metadata for webpages
 struct Page {
 	int ID;
 	vector <int> incoming_ids;
@@ -19,10 +19,9 @@ struct Page {
 	int num_in_pages;
 	int num_out_pages;
 	long double page_rank;
-	long double temp_page_rank;
 };
 
-
+//Helper function to make a vector of all nodes with no outlinks
 std::vector<int> ExploreDanglingPages(std::vector<int> &out_link_cnts) {
 	std::vector<int> dangling_pages;
 	for (int i = 0; i < out_link_cnts.size(); i++) {
@@ -33,7 +32,7 @@ std::vector<int> ExploreDanglingPages(std::vector<int> &out_link_cnts) {
 	return dangling_pages;
 }
 
-
+//Helper function to initialize page rank
 std::vector<long double> InitPr(int page_cnt) {
 	std::vector<long double> pr;
 	pr.reserve(page_cnt);
@@ -43,26 +42,15 @@ std::vector<long double> InitPr(int page_cnt) {
 	return pr;
 }
 
-int find_element(const std::vector<Page> &pages, int ID){
-
-	auto iter = std::find_if(pages.begin(), pages.end(), 
-			[&](const Page& p){return p.ID == ID;});
-
-	if (iter != pages.end()){
-		return (iter - pages.begin());
-	}else{
-		return -1;
-	}
-}
-
+//First step of main computation 
 void AddPagesPr(
 		std::vector<Page> &pages,
 		std::vector<double> &out_link_cnts_rcp,
 		std::vector<long double> &old_pr,
 		std::vector<long double> &new_pr) {
+
 	for (int i = 0; i < pages.size(); i++) {
 		long double sum = 0;
-		// int num_incoming = pages[i].incoming_ids.size();
     int  num_incoming = pages[i].size_incoming_ids;
 		for (int j = 0 ; j<num_incoming;j++){
 			int in_id = pages[i].incoming_ids[j];
@@ -72,18 +60,17 @@ void AddPagesPr(
 	}
 }
 
+//Helper function to add effect of dangling pages
 void AddDanglingPagesPr(
 		std::vector<int> &dangling_pages,
 		std::vector<long double> &old_pr,
 		std::vector<long double> &new_pr) {
+	
 	long double sum = 0;
 	int dangling_pages_size = dangling_pages.size();
 	for (int i = 0; i < dangling_pages_size; i++) {
 		sum += old_pr[dangling_pages[i]];
 	}
-	// for (long double &pr : new_pr) {
-	// 	pr += sum / new_pr.size();
-	// }
 	int new_pr_size = new_pr.size();
 	double val = sum/new_pr_size;
 	for (int i = 0; i < new_pr_size; i++) {
@@ -91,18 +78,15 @@ void AddDanglingPagesPr(
 	}
 }
 
+//Helper function to calculate random surfer
 void AddRandomJumpsPr(
 		float damping_factor,
 		std::vector<long double> &new_pr) {
-	// for (long double &pr : new_pr) {
-	// 	pr = pr * damping_factor + (1 - damping_factor) / new_pr.size();
-	// }
+
 	int new_pr_size = new_pr.size();
 	double val = (1- damping_factor) * 1.0 /new_pr_size;
-
 	for (int i = 0; i < new_pr_size; i++) {
 		new_pr[i] = new_pr[i] * damping_factor +  val;
-
 	}
 }
 
@@ -230,15 +214,12 @@ int main(int argc, char** argv){
 	for (int iter = 0; iter < 80; iter++){
 
 		std::copy(pr.begin(), pr.end(), old_pr.begin());
-
 		AddPagesPr(pages, out_link_cnts_rcp, old_pr, pr);
 		AddDanglingPagesPr(dangling_pages, old_pr, pr);
 		AddRandomJumpsPr(damping, pr);
 
 	}
-
 	compute_time += duration_cast<dsec>(Clock::now() - compute_start).count();
 	printf("Computation Time: %lf.\n", compute_time);
-	// for (auto i: pr)
-	//   std::cout << i << ' ';    
+  
 }

@@ -15,8 +15,7 @@
 #include "immintrin.h"
 using namespace std;
 
-
-
+//Data structure to hold metadata for webpages
 struct Page {
 	int ID;
 	vector <int> incoming_ids;
@@ -24,10 +23,9 @@ struct Page {
 	int num_in_pages;
 	int num_out_pages;
 	double page_rank;
-	double temp_page_rank;
 };
 
-
+//Helper function to make a vector of all nodes with no outlinks
 std::vector<int> ExploreDanglingPages(std::vector<int> &out_link_cnts) {
 	std::vector<int> dangling_pages;
 	for (int i = 0; i < out_link_cnts.size(); i++) {
@@ -38,7 +36,7 @@ std::vector<int> ExploreDanglingPages(std::vector<int> &out_link_cnts) {
 	return dangling_pages;
 }
 
-
+//Helper function to initialize page rank
 std::vector<float> InitPr(int page_cnt) {
 	std::vector<float> pr;
 	pr.reserve(page_cnt);
@@ -49,31 +47,22 @@ std::vector<float> InitPr(int page_cnt) {
 	return pr;
 }
 
-int find_element(const std::vector<Page> &pages, int ID){
 
-	auto iter = std::find_if(pages.begin(), pages.end(), 
-			[&](const Page& p){return p.ID == ID;});
-
-	if (iter != pages.end()){
-		return (iter - pages.begin());
-	}else{
-		return -1;
-	}
-}
-
+//First step of main computation 
 void AddPagesPr(
 		std::vector<Page> &pages,
 		std::vector<double> out_link_cnts_rcp,
 		std::vector<float> &old_pr,
 		std::vector<float> &new_pr) {
+
 	#pragma omp parallel for schedule(dynamic, 128)
 	for (int i = 0; i < pages.size(); i++) {
-
+		//For each page, compute initial page rank based on rank of neighbours
 		double sum = 0;
 		int  num_incoming = pages[i].size_incoming_ids;
-
+		
 		for (int j = 0 ; j < (num_incoming/4)*4; j+= 4){
-
+			//Loop unrolling 
 			int in_id1 = pages[i].incoming_ids[j]; 
 			int in_id2 = pages[i].incoming_ids[j+1]; 
 			int in_id3 = pages[i].incoming_ids[j + 2]; 
@@ -81,7 +70,6 @@ void AddPagesPr(
 			sum = sum +  (old_pr[in_id1] * out_link_cnts_rcp[in_id1]) + 
 				(old_pr[in_id2] * out_link_cnts_rcp[in_id2]) + (old_pr[in_id3] * out_link_cnts_rcp[in_id3]) 
 				+  (old_pr[in_id4] * out_link_cnts_rcp[in_id4]);
-
 		}
 		for (int j = (num_incoming/4)*4; j < num_incoming; j++){
 			int in_id1 = pages[i].incoming_ids[j];
@@ -91,8 +79,7 @@ void AddPagesPr(
 	}
 }
 
-
-
+//Helper function to add effect of dangling pages
 void AddDanglingPagesPr(
 		std::vector<int> &dangling_pages,
 		std::vector<float> &old_pr,
@@ -104,6 +91,7 @@ void AddDanglingPagesPr(
 		sum += old_pr[dangling_pages[i]];
 	}
 
+	//Added SIMD instructions to improve serial component of computation
 	int new_pr_size = new_pr.size();
 	double val = sum/new_pr_size;
 	__m256 val_buf = _mm256_set1_ps(val);
@@ -117,6 +105,7 @@ void AddDanglingPagesPr(
 
 }
 
+//Helper function to calculate random surfer
 void AddRandomJumpsPr(
 		double damping_factor,
 		std::vector<float> &new_pr) {
@@ -137,6 +126,7 @@ void AddRandomJumpsPr(
 
 }
 
+//Helper function to test convergence 
 double L1Norm(
 		const std::vector<double> a,
 		const std::vector<double> b) {
@@ -153,8 +143,6 @@ int main(int argc, char** argv){
 	typedef std::chrono::duration<double> dsec;
 
 	int opt = 0;
-	
-
 	char *graph_filename = NULL;
 	int num_threads = 1;
   float damping = 0.85;
@@ -201,6 +189,8 @@ int main(int argc, char** argv){
 
 	auto load_start = Clock::now();
 	double load_time = 0;
+
+	//Read edgelist into map to handle non contiguous indices
 	while (!feof(fid)) {
 		if (fscanf(fid,"%d,%d\n", &from_idx,&to_idx)) {
 
@@ -229,11 +219,11 @@ int main(int argc, char** argv){
 		}
 	}
 
-
 	cout << "Num pages: " << num_pages<< endl;
 	out_link_cnts.reserve(num_pages);
 	out_link_cnts_rcp.reserve(num_pages);
 
+	//Initialize vector containing outgoing links 
 	int idx;
 	for (int i=0; i<num_pages;i++){
 		idx = lookup[i]; 
@@ -241,14 +231,12 @@ int main(int argc, char** argv){
 		out_link_cnts.push_back(input_pages[idx].num_out_pages);
 		if (input_pages[idx].num_out_pages != 0) {
 			out_link_cnts_rcp.push_back(1.0/input_pages[idx].num_out_pages);
-
 		} else {
 			out_link_cnts_rcp.push_back(0);
 		}
-
 	}
 
-
+	//Initialize vector of structs containing Page data strucutre
 	int vec_idx;
 	for (int i=0; i<num_pages;i++){
 		pages.push_back(Page());
@@ -256,14 +244,12 @@ int main(int argc, char** argv){
 		idx = lookup[i];
 		pages[i].num_in_pages = input_pages[idx].num_in_pages;
 		pages[i].ID = idx;
-    for (int j=0;j<input_pages[idx].incoming_ids.size();j++){
 
+    for (int j=0;j<input_pages[idx].incoming_ids.size();j++){
 			vec_idx = rev_lookup[input_pages[idx].incoming_ids[j]];
 			pages[i].incoming_ids.push_back(vec_idx);
-
 		} 
 		pages[i].size_incoming_ids = pages[i].incoming_ids.size();
-
 	}
 	load_time += duration_cast<dsec>(Clock::now() - load_start).count();
 	printf("Graph data loaded in: %lf.\n", load_time);
@@ -276,31 +262,22 @@ int main(int argc, char** argv){
 	double compute_time = 0;
 	double addPage_time = 0;
 	double other_compute = 0;
+	
 	for (int iter = 0; iter < 80; iter++){
 
 		std::copy(pr.begin(), pr.end(), old_pr.begin());
-
 		auto addPage_start = Clock::now();
 		AddPagesPr(pages, out_link_cnts_rcp, old_pr, pr);
-
 		addPage_time += duration_cast<dsec>(Clock::now() - addPage_start).count();
-
 		auto other_compute_start = Clock::now();
 		AddDanglingPagesPr(dangling_pages, old_pr, pr);
-
 		AddRandomJumpsPr(0.85, pr);
 
 		other_compute += duration_cast<dsec>(Clock::now() - other_compute_start).count();
-
 	}
+
 	compute_time += duration_cast<dsec>(Clock::now() - compute_start).count();
-	
 	printf("Add page time: %lf.\n", addPage_time);
 	printf("Other compute time: %lf.\n", other_compute);
 	printf("Computation Time: %lf.\n", compute_time);
-
-	// for (auto i: pr)
-	//   std::cout << i << ' '; 
-
-	// cout << endl;   
 }
