@@ -21,16 +21,17 @@ This repository contains all the code for various incremental versions for calcu
 ## To run: 
 
 Each directory has it's own MakeFile
-To compile, simply run 
+To compile, simply run
+
 <code>make</code>
 
 To run the compiled code
 
-<code>./serial -f ../input_graphs/<graph>.txt </code>
+<code>./serial -f ../input_graphs/graph.txt </code>
 
-<code>./parallel -f ../input_graphs/<graph>.txt -n <number of threads> </code>
+<code>./parallel -f ../input_graphs/graph.txt -n number of threads </code>
   
-<code> mpirun -np <number of processors> ./parallel -f ../input_graphs/<graph>.txt </code>  
+<code> mpirun -np number of processors ./parallel -f ../input_graphs/graph.txt </code>  
   
 
   
